@@ -15,13 +15,13 @@ isVisable(size_t i, uint8_t j)
 	(j != 5 || (i / CHUNK) % CHUNK) && chunk[idx]);
 }
 
-char
+inline char
 tile(size_t i, uint8_t mFaces[], uint8_t face, uint8_t t)
 {
 	return !((mFaces[i] >> face) & 1) && isVisable(i, face) && chunk[i] == t;
 }
 
-char
+inline char
 stripX(size_t i, uint8_t len, uint8_t mFaces[], uint8_t face, uint8_t t)
 {
 	uint8_t j;
@@ -30,7 +30,7 @@ stripX(size_t i, uint8_t len, uint8_t mFaces[], uint8_t face, uint8_t t)
 	return j == len;
 }
 
-char
+inline char
 stripY(size_t i, uint8_t len, uint8_t mFaces[], uint8_t face, uint8_t t)
 {
 	uint8_t j;
@@ -43,8 +43,7 @@ void
 genChunk()
 {
 	for (size_t i = 0; i < CHUNKSZ; ++i)
-		chunk[i] = DIRT;
-	chunk[2070] = STONE;
+		chunk[i] = i / CHUNK & 3;
 }
 
 size_t

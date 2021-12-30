@@ -8,6 +8,7 @@
 #define NAME "IDK"
 #define SPD 5
 #define MOUSESPD 5e-4f
+#define BACKGRD 0.2, 0.8, 1
 
 mat4 viewMat = {0};
 GLFWwindow* window;
@@ -169,7 +170,7 @@ init()
 	glfwSetCursorPos(window, SCREEN_W / 2, SCREEN_H / 2);
 	glfwSetKeyCallback(window, handleKey);
 	glfwSetCursorPosCallback(window, handleMouse);
-	glClearColor(0.2, 0.7, 0.4, 0);
+	glClearColor(BACKGRD, 0);
 
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
