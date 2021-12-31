@@ -8,7 +8,7 @@
 #define NAME "IDK"
 #define SPD 5
 #define MOUSESPD 5e-4f
-#define BACKGRD 0.2, 0.8, 1
+#define BACKGRD 0.3, 0.8, 1
 
 mat4 viewMat = {0};
 GLFWwindow* window;
