@@ -5,7 +5,7 @@
 uint8_t chunk[CHUNK][CHUNK][CHUNK];
 
 char
-isVisable(uint8_t x, uint8_t y, uint8_t z, uint8_t f)
+isVisable(int8_t x, int8_t y, int8_t z, uint8_t f)
 {
 	switch (f) {
 	case 0:
@@ -57,10 +57,10 @@ stripY(uint8_t x, uint8_t y, uint8_t z, uint8_t len, uint8_t mFaces[CHUNK][CHUNK
 void
 genChunk()
 {
-	for (uint8_t i = 0; i < CHUNK; ++i) {
-		for (uint8_t j = 0; j < CHUNK; ++j) {
-			for (uint8_t k = 0; k < CHUNK; ++k)
-				chunk[i][j][k] = j & 3;
+	for (uint8_t x = 0; x < CHUNK; ++x) {
+		for (uint8_t y = 0; y < CHUNK; ++y) {
+			for (uint8_t z = 0; z < CHUNK; ++z)
+				chunk[x][y][z] = ((z & 3) && (x & 3)) * (y & 3);
 		}
 	}
 }
@@ -79,10 +79,9 @@ genMeshes(GLint **pos, GLubyte **spans, GLubyte **faces, GLubyte **tex)
 	for (int z = 0; z < CHUNK; ++z) {
 		for (int y = 0; y < CHUNK; ++y) {
 			for (int x = 0; x < CHUNK; ++x) {
-				if (chunk[x][y][z]) {
+				if ((t = chunk[x][y][z])) {
 					for (uint8_t i = 0; i < 6; ++i) {
 						if (!(meshedFaces[x][y][z] & (1 << i)) && isVisable(x, y, z, i)) {
-							t = chunk[x][y][z];
 							if (size == allocSz) {
 								*pos = realloc(*pos, 3 * (allocSz += ALLOC) * sizeof(GLint));
 								*spans = realloc(*spans, 2 * allocSz);
@@ -91,95 +90,49 @@ genMeshes(GLint **pos, GLubyte **spans, GLubyte **faces, GLubyte **tex)
 							}
 							switch (i) {
 							case 0:
-								for (n = 0; n < CHUNK - x &&
-									tile(x + n, y, z, meshedFaces, 0, t); ++n)
-									meshedFaces[x + n][y][z] |= 1;
-								for (m = 1; m < CHUNK - y &&
-									stripX(x, y + m, z, n, meshedFaces, 0, t); ++m) {
-									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x + j][y + m][z] |= 1;
-								}
-								(*pos)[3 * size] = x;
-								(*pos)[3 * size + 1] = y;
-								(*pos)[3 * size + 2] = z;
-								(*spans)[2 * size] = n;
-								(*spans)[2 * size + 1] = m;
-								break;
-							case 1:
-								for (n = 0; n < CHUNK - y &&
-									tile(x, y + n, z, meshedFaces, 1, t); ++n)
-									meshedFaces[x][y + n][z] |= 2;
-								for (m = 1; m < CHUNK - z &&
-									stripY(x, y, z + m, n, meshedFaces, 1, t); ++m) {
-									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x][y + j][z + m] |= 2;
-								}
-								(*pos)[3 * size] = x + 1;
-								(*pos)[3 * size + 1] = y;
-								(*pos)[3 * size + 2] = z + m - 1;
-								(*spans)[2 * size] = m;
-								(*spans)[2 * size + 1] = n;
-								break;
 							case 2:
 								for (n = 0; n < CHUNK - x &&
-									tile(x + n, y, z, meshedFaces, 2, t); ++n)
-									meshedFaces[x + n][y][z] |= 4;
+									tile(x + n, y, z, meshedFaces, i, t); ++n)
+									meshedFaces[x + n][y][z] |= (1 << i);
 								for (m = 1; m < CHUNK - y &&
-									stripX(x, y + m, z, n, meshedFaces, 2, t); ++m) {
+									stripX(x, y + m, z, n, meshedFaces, i, t); ++m) {
 									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x + j][y + m][z] |= 4;
+										meshedFaces[x + j][y + m][z] |= (1 << i);
 								}
-								(*pos)[3 * size] = x + n;
+								(*pos)[3 * size] = x + (i == 2) * n;
 								(*pos)[3 * size + 1] = y;
-								(*pos)[3 * size + 2] = z - 1;
-								(*spans)[2 * size] = n;
-								(*spans)[2 * size + 1] = m;
+								(*pos)[3 * size + 2] = z - (i == 2);
 								break;
+							case 1:
 							case 3:
 								for (n = 0; n < CHUNK - y &&
-									tile(x, y + n, z, meshedFaces, 3, t); ++n)
-									meshedFaces[x][y + n][z] |= 8;
+									tile(x, y + n, z, meshedFaces, i, t); ++n)
+									meshedFaces[x][y + n][z] |= (1 << i);
 								for (m = 1; m < CHUNK - z &&
-									stripY(x, y, z + m, n, meshedFaces, 3, t); ++m) {
+									stripY(x, y, z + m, n, meshedFaces, i, t); ++m) {
 									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x][y + j][z + m] |= 8;
+										meshedFaces[x][y + j][z + m] |= (1 << i);
 								}
-								(*pos)[3 * size] = x;
+								(*pos)[3 * size] = x + (i == 1);
 								(*pos)[3 * size + 1] = y;
-								(*pos)[3 * size + 2] = z - 1;
-								(*spans)[2 * size] = m;
-								(*spans)[2 * size + 1] = n;
+								(*pos)[3 * size + 2] = z + (i == 1) * m - 1;
 								break;
 							case 4:
-								for (n = 0; n < CHUNK - x &&
-									tile(x + n, y, z, meshedFaces, 4, t); ++n)
-									meshedFaces[x + n][y][z] |= 16;
-								for (m = 1; m < CHUNK - z &&
-									stripX(x, y, z + m, n, meshedFaces, 4, t); ++m) {
-									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x + j][y][z + m] |= 16;
-								}
-								(*pos)[3 * size] = x;
-								(*pos)[3 * size + 1] = y + 1;
-								(*pos)[3 * size + 2] = z + m - 1;
-								(*spans)[2 * size] = n;
-								(*spans)[2 * size + 1] = m;
-								break;
 							case 5:
 								for (n = 0; n < CHUNK - x &&
-									tile(x + n, y, z, meshedFaces, 5, t); ++n)
-									meshedFaces[x + n][y][z] |= 32;
+									tile(x + n, y, z, meshedFaces, i, t); ++n)
+									meshedFaces[x + n][y][z] |= (1 << i);
 								for (m = 1; m < CHUNK - z &&
-									stripX(x, y, z + m, n, meshedFaces, 5, t); ++m) {
+									stripX(x, y, z + m, n, meshedFaces, i, t); ++m) {
 									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x + j][y][z + m] |= 32;
+										meshedFaces[x + j][y][z + m] |= (1 << i);
 								}
 								(*pos)[3 * size] = x;
-								(*pos)[3 * size + 1] = y;
-								(*pos)[3 * size + 2] = z - 1;
-								(*spans)[2 * size] = n;
-								(*spans)[2 * size + 1] = m;
+								(*pos)[3 * size + 1] = y + (i == 4);
+								(*pos)[3 * size + 2] = z + (i == 4) * m - 1;
 							}
+							(*spans)[2 * size] = (i & 1) && i != 5 ? m : n;
+							(*spans)[2 * size + 1] = (i & 1) && i != 5 ? n : m;
 							(*faces)[size] = i;
 							(*tex)[size++] = t - 1;
 						}
