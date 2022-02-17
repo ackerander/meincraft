@@ -2,144 +2,155 @@
 #include <stdlib.h>
 #define ALLOC 64
 
-uint8_t chunk[CHUNK][CHUNK][CHUNK];
+uint8_t (*chunks)[CHUNK][CHUNK][CHUNK];
+uint16_t offset = 0;
+uint8_t drawDist = 7;
+int d[3] = {0};
 
 char
-isVisable(int8_t x, int8_t y, int8_t z, uint8_t f)
+isVisable(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t f)
 {
-	switch (f) {
-	case 0:
-		++z;
-		break;
-	case 1:
-		++x;
-		break;
-	case 2:
-		--z;
-		break;
-	case 3:
-		--x;
-		break;
-	case 4:
-		++y;
-		break;
-	case 5:
-		--y;
-	}
-	return z >= CHUNK || x >= CHUNK || z < 0 || x < 0 ||
-		y >= CHUNK || y < 0 || !chunk[x][y][z];
+	uint8_t *c = f < 4 ? (f & 1 ? &x : &z) : &y;
+	*c += ((38 >> f) & 2) - 1;
+	return z >= CHUNK || x >= CHUNK ||
+		y >= CHUNK || !chunks[idx][x][y][z];
 }
 
 inline char
-tile(uint8_t x, uint8_t y, uint8_t z, uint8_t mFaces[CHUNK][CHUNK][CHUNK], uint8_t face, uint8_t t)
+tile(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t mFaces[CHUNK][CHUNK][CHUNK], uint8_t face, uint8_t t)
 {
-	return !((mFaces[x][y][z] >> face) & 1) && isVisable(x, y, z, face) && chunk[x][y][z] == t;
+	return !((mFaces[x][y][z] >> face) & 1) && isVisable(idx, x, y, z, face) && chunks[idx][x][y][z] == t;
 }
 
 inline char
-stripX(uint8_t x, uint8_t y, uint8_t z, uint8_t len, uint8_t mFaces[CHUNK][CHUNK][CHUNK], uint8_t face, uint8_t t)
+stripX(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t len, uint8_t mFaces[CHUNK][CHUNK][CHUNK], uint8_t face, uint8_t t)
 {
 	uint8_t i;
 	for (i = 0; i < len && !((mFaces[x + i][y][z] >> face) & 1) &&
-		isVisable(x + i, y, z, face) && chunk[x + i][y][z] == t; ++i);
+		isVisable(idx, x + i, y, z, face) && chunks[idx][x + i][y][z] == t; ++i);
 	return i == len;
 }
 
 inline char
-stripY(uint8_t x, uint8_t y, uint8_t z, uint8_t len, uint8_t mFaces[CHUNK][CHUNK][CHUNK], uint8_t face, uint8_t t)
+stripY(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t len, uint8_t mFaces[CHUNK][CHUNK][CHUNK], uint8_t face, uint8_t t)
 {
 	uint8_t i;
 	for (i = 0; i < len && !((mFaces[x][y + i][z] >> face) & 1) &&
-		isVisable(x, y + i, z, face) && chunk[x][y + i][z] == t; ++i);
+		isVisable(idx, x, y + i, z, face) && chunks[idx][x][y + i][z] == t; ++i);
 	return i == len;
 }
 
 void
-genChunk()
+genChunk(uint8_t i, uint8_t j, uint8_t k)
 {
+	uint16_t idx = i + drawDist * (j + drawDist * k);
 	for (uint8_t x = 0; x < CHUNK; ++x) {
 		for (uint8_t y = 0; y < CHUNK; ++y) {
 			for (uint8_t z = 0; z < CHUNK; ++z)
-				chunk[x][y][z] = ((z & 3) && (x & 3)) * (y & 3);
+				chunks[idx][x][y][z] = y < CHUNK / 2;
 		}
 	}
+}
+
+void
+initGame()
+{
+	chunks = malloc(sizeof(uint8_t[drawDist * drawDist * drawDist]
+		[CHUNK][CHUNK][CHUNK]));
+	for (uint8_t i = 0; i < drawDist; ++i) {
+		for (uint8_t j = 0; j < drawDist; ++j) {
+			for (uint8_t k = 0; k < drawDist; ++k)
+				genChunk(i, j, k);
+		}
+	}
+}
+
+void
+cleanup()
+{
+	free(chunks);
 }
 
 size_t
 genMeshes(GLint **pos, GLubyte **spans, GLubyte **faces, GLubyte **tex)
 {
-	uint8_t meshedFaces[CHUNK][CHUNK][CHUNK] = {0},
+	uint8_t meshedFaces[CHUNK][CHUNK][CHUNK],
 		n, m, t;
 	size_t size = 0, allocSz = ALLOC;
+	int idx;
 
 	*pos = malloc(3 * ALLOC * sizeof(GLint));
 	*spans = malloc(2 * ALLOC);
 	*faces = malloc(ALLOC);
 	*tex = malloc(ALLOC);
-	for (int z = 0; z < CHUNK; ++z) {
+	for (int iz = 1; iz < drawDist - 1; ++iz) {
+	for (int iy = 1; iy < drawDist - 1; ++iy) {
+	for (int ix = 1; ix < drawDist - 1; ++ix) {
+		memset(meshedFaces, 0, sizeof(meshedFaces));
+		idx = drawDist * (drawDist * iz + iy) + ix;
+		for (int z = 0; z < CHUNK; ++z) {
 		for (int y = 0; y < CHUNK; ++y) {
-			for (int x = 0; x < CHUNK; ++x) {
-				if ((t = chunk[x][y][z])) {
-					for (uint8_t i = 0; i < 6; ++i) {
-						if (!(meshedFaces[x][y][z] & (1 << i)) && isVisable(x, y, z, i)) {
-							if (size == allocSz) {
-								*pos = realloc(*pos, 3 * (allocSz += ALLOC) * sizeof(GLint));
-								*spans = realloc(*spans, 2 * allocSz);
-								*faces = realloc(*faces, allocSz);
-								*tex = realloc(*tex, allocSz);
-							}
-							switch (i) {
-							case 0:
-							case 2:
-								for (n = 0; n < CHUNK - x &&
-									tile(x + n, y, z, meshedFaces, i, t); ++n)
-									meshedFaces[x + n][y][z] |= (1 << i);
-								for (m = 1; m < CHUNK - y &&
-									stripX(x, y + m, z, n, meshedFaces, i, t); ++m) {
-									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x + j][y + m][z] |= (1 << i);
-								}
-								(*pos)[3 * size] = x + (i == 2) * n;
-								(*pos)[3 * size + 1] = y;
-								(*pos)[3 * size + 2] = z - (i == 2);
-								break;
-							case 1:
-							case 3:
-								for (n = 0; n < CHUNK - y &&
-									tile(x, y + n, z, meshedFaces, i, t); ++n)
-									meshedFaces[x][y + n][z] |= (1 << i);
-								for (m = 1; m < CHUNK - z &&
-									stripY(x, y, z + m, n, meshedFaces, i, t); ++m) {
-									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x][y + j][z + m] |= (1 << i);
-								}
-								(*pos)[3 * size] = x + (i == 1);
-								(*pos)[3 * size + 1] = y;
-								(*pos)[3 * size + 2] = z + (i == 1) * m - 1;
-								break;
-							case 4:
-							case 5:
-								for (n = 0; n < CHUNK - x &&
-									tile(x + n, y, z, meshedFaces, i, t); ++n)
-									meshedFaces[x + n][y][z] |= (1 << i);
-								for (m = 1; m < CHUNK - z &&
-									stripX(x, y, z + m, n, meshedFaces, i, t); ++m) {
-									for (uint8_t j = 0; j < n; ++j)
-										meshedFaces[x + j][y][z + m] |= (1 << i);
-								}
-								(*pos)[3 * size] = x;
-								(*pos)[3 * size + 1] = y + (i == 4);
-								(*pos)[3 * size + 2] = z + (i == 4) * m - 1;
-							}
-							(*spans)[2 * size] = (i & 1) && i != 5 ? m : n;
-							(*spans)[2 * size + 1] = (i & 1) && i != 5 ? n : m;
-							(*faces)[size] = i;
-							(*tex)[size++] = t - 1;
+		for (int x = 0; x < CHUNK; ++x) {
+			if ((t = chunks[idx][x][y][z])) {
+				for (uint8_t i = 0; i < 6; ++i) {
+					if (!(meshedFaces[x][y][z] & (1 << i)) && isVisable(idx, x, y, z, i)) {
+						if (size == allocSz) {
+							*pos = realloc(*pos, 3 * (allocSz += ALLOC) * sizeof(GLint));
+							*spans = realloc(*spans, 2 * allocSz);
+							*faces = realloc(*faces, allocSz);
+							*tex = realloc(*tex, allocSz);
 						}
+						switch (i) {
+						case 0:
+						case 2:
+							for (n = 0; n < CHUNK - x &&
+								tile(idx, x + n, y, z, meshedFaces, i, t); ++n)
+								meshedFaces[x + n][y][z] |= (1 << i);
+							for (m = 1; m < CHUNK - y &&
+								stripX(idx, x, y + m, z, n, meshedFaces, i, t); ++m) {
+								for (uint8_t j = 0; j < n; ++j)
+									meshedFaces[x + j][y + m][z] |= (1 << i);
+							}
+							(*pos)[3 * size] = CHUNK * (ix - drawDist / 2 + d[0]) + x + (i == 2) * n;
+							(*pos)[3 * size + 1] = CHUNK * (iy - drawDist / 2 + d[1]) + y;
+							(*pos)[3 * size + 2] = CHUNK * (iz - drawDist / 2 + d[2]) + z - (i == 2);
+							break;
+						case 1:
+						case 3:
+							for (n = 0; n < CHUNK - y &&
+								tile(idx, x, y + n, z, meshedFaces, i, t); ++n)
+								meshedFaces[x][y + n][z] |= (1 << i);
+							for (m = 1; m < CHUNK - z &&
+								stripY(idx, x, y, z + m, n, meshedFaces, i, t); ++m) {
+								for (uint8_t j = 0; j < n; ++j)
+									meshedFaces[x][y + j][z + m] |= (1 << i);
+							}
+							(*pos)[3 * size] = CHUNK * (ix - drawDist / 2 + d[0]) + x + (i == 1);
+							(*pos)[3 * size + 1] = CHUNK * (iy - drawDist / 2 + d[1]) + y;
+							(*pos)[3 * size + 2] = CHUNK * (iz - drawDist / 2 + d[2]) + z + (i == 1) * m - 1;
+							break;
+						case 4:
+						case 5:
+							for (n = 0; n < CHUNK - x &&
+								tile(idx, x + n, y, z, meshedFaces, i, t); ++n)
+								meshedFaces[x + n][y][z] |= (1 << i);
+							for (m = 1; m < CHUNK - z &&
+								stripX(idx, x, y, z + m, n, meshedFaces, i, t); ++m) {
+								for (uint8_t j = 0; j < n; ++j)
+									meshedFaces[x + j][y][z + m] |= (1 << i);
+							}
+							(*pos)[3 * size] = CHUNK * (ix - drawDist / 2 + d[0]) + x;
+							(*pos)[3 * size + 1] = CHUNK * (iy - drawDist / 2 + d[1]) + y + (i == 4);
+							(*pos)[3 * size + 2] = CHUNK * (iz - drawDist / 2 + d[2]) + z + (i == 4) * m - 1;
+						}
+						(*spans)[2 * size] = (i & 1) && i != 5 ? m : n;
+						(*spans)[2 * size + 1] = (i & 1) && i != 5 ? n : m;
+						(*faces)[size] = i;
+						(*tex)[size++] = t - 1;
 					}
 				}
 			}
-		}
-	}
+		}}}
+	}}}
 	return size;
 }

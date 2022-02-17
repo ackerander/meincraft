@@ -32,7 +32,7 @@ main(int argc, char **argv)
 	texID = glGetUniformLocation(progID, "myTextureSampler");
 
 /* Construct chunk & meshes */
-	genChunk();
+	initGame();
 	meshes = genMeshes(&pos, &spans, &faces, &texes);
 	printf("Mesh size: %lu\n", meshes);
 
@@ -98,6 +98,8 @@ main(int argc, char **argv)
 
 		glfwPollEvents();
 	} while (!glfwWindowShouldClose(window));
+
+	cleanup();
 
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
