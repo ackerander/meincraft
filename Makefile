@@ -1,7 +1,7 @@
 OPS = -std=c99 -Wall -Wextra -pedantic
 OPT = -O3 -march=native -mtune=native
 DBG = -ggdb
-LIBS = -lglfw -lGLEW -lGL -lm -lpng
+LIBS = -lglfw -lGLEW -lGL -lm -lpng -lnoise
 DEST = main
 CC = cc
 

@@ -1,11 +1,15 @@
 #include "stuff.h"
 #include <stdlib.h>
+#include <time.h>
+#include <noise.h>
 #define ALLOC 64
+#define SCALE 1e-3
+#define OCTS 4
 
 uint8_t (*chunks)[CHUNK][CHUNK][CHUNK];
-uint16_t offset = 0;
 uint8_t drawDist = 7;
 int d[3] = {0};
+static float offsets[OCTS][2];
 
 char
 isVisable(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t f)
@@ -44,10 +48,14 @@ void
 genChunk(uint8_t i, uint8_t j, uint8_t k)
 {
 	uint16_t idx = i + drawDist * (j + drawDist * k);
+	int h;
 	for (uint8_t x = 0; x < CHUNK; ++x) {
-		for (uint8_t y = 0; y < CHUNK; ++y) {
-			for (uint8_t z = 0; z < CHUNK; ++z)
-				chunks[idx][x][y][z] = y < CHUNK / 2;
+		for (uint8_t z = 0; z < CHUNK; ++z) {
+			h = (int)(64 * (noise(SCALE * (CHUNK * (d[0] - drawDist / 2 + i) + x),
+					SCALE * (CHUNK * (d[2] - drawDist / 2 + k) + z),
+					offsets, OCTS, 0.4, 4) - 0.5));
+			for (uint8_t y = 0; CHUNK * (d[1] - drawDist / 2 + j) + y < h; ++y)
+				chunks[idx][x][y][z] = DIRT;
 		}
 	}
 }
@@ -57,6 +65,8 @@ initGame()
 {
 	chunks = malloc(sizeof(uint8_t[drawDist * drawDist * drawDist]
 		[CHUNK][CHUNK][CHUNK]));
+	initPerlin(time(0));
+	randCoords(offsets, -10000, 10000, OCTS);
 	for (uint8_t i = 0; i < drawDist; ++i) {
 		for (uint8_t j = 0; j < drawDist; ++j) {
 			for (uint8_t k = 0; k < drawDist; ++k)
