@@ -12,13 +12,11 @@ int d[3] = {0};
 static float offsets[OCTS][2];
 static const uint8_t texMap[][3] = {{0, 0, 0}, {1, 1, 1}, {2, 3, 1}, {4, 4, 4}};
 
-char
+inline char
 isVisable(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t f)
 {
 	uint8_t *c = f < 4 ? (f & 1 ? &x : &z) : &y;
-	*c += ((38 >> f) & 2) - 1;
-	return z >= CHUNK || x >= CHUNK ||
-		y >= CHUNK || !chunks[idx][x][y][z];
+	return (*c += ((38 >> f) & 2) - 1) >= CHUNK || !chunks[idx][x][y][z];
 }
 
 inline char
