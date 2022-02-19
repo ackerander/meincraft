@@ -8,7 +8,7 @@
 #define CHUNK 32
 #define CHUNKSZ CHUNK * CHUNK * CHUNK
 
-enum blocks { NONE, DIRT, STONE, LOG, WOOD, SAND, COAL, IRON };
+enum blocks { NONE, STONE, DIRT, GRASS, SAND, LOG, WOOD, COAL, IRON };
 
 void updateView();
 short init();

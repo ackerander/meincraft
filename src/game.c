@@ -3,13 +3,14 @@
 #include <time.h>
 #include <noise.h>
 #define ALLOC 64
-#define SCALE 1e-3
+#define SCALE 3e-4
 #define OCTS 4
 
 uint8_t (*chunks)[CHUNK][CHUNK][CHUNK];
 uint8_t drawDist = 7;
 int d[3] = {0};
 static float offsets[OCTS][2];
+static const uint8_t texMap[][3] = {{0, 0, 0}, {1, 1, 1}, {2, 3, 1}, {4, 4, 4}};
 
 char
 isVisable(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t f)
@@ -44,18 +45,26 @@ stripY(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t len, uint8_t mFaces[CHU
 	return i == len;
 }
 
+uint8_t
+getBlock(long y, int h)
+{
+	if (h < 5)
+		return SAND;
+	return (h <= 50 && y + 2 >= h) + (y + 1 == h) + 1;
+}
+
 void
 genChunk(uint8_t i, uint8_t j, uint8_t k)
 {
 	uint16_t idx = i + drawDist * (j + drawDist * k);
-	int h;
+	long h, blockH = CHUNK * (d[1] - drawDist / 2 + j);
 	for (uint8_t x = 0; x < CHUNK; ++x) {
 		for (uint8_t z = 0; z < CHUNK; ++z) {
-			h = (int)(64 * (noise(SCALE * (CHUNK * (d[0] - drawDist / 2 + i) + x),
+			h = (int)(512 * (noise(SCALE * (CHUNK * (d[0] - drawDist / 2 + i) + x),
 					SCALE * (CHUNK * (d[2] - drawDist / 2 + k) + z),
-					offsets, OCTS, 0.4, 4) - 0.5));
-			for (uint8_t y = 0; CHUNK * (d[1] - drawDist / 2 + j) + y < h; ++y)
-				chunks[idx][x][y][z] = DIRT;
+					offsets, OCTS, 0.4, 5) - 0.5));
+			for (uint8_t y = 0; blockH + y < h && y < CHUNK; ++y)
+				chunks[idx][x][y][z] = getBlock(blockH + y, h);
 		}
 	}
 }
@@ -65,8 +74,8 @@ initGame()
 {
 	chunks = malloc(sizeof(uint8_t[drawDist * drawDist * drawDist]
 		[CHUNK][CHUNK][CHUNK]));
-	initPerlin(time(0));
-	randCoords(offsets, -10000, 10000, OCTS);
+	initPerlin(3);
+	randCoords(offsets, -100000, 100000, OCTS);
 	for (uint8_t i = 0; i < drawDist; ++i) {
 		for (uint8_t j = 0; j < drawDist; ++j) {
 			for (uint8_t k = 0; k < drawDist; ++k)
@@ -156,7 +165,8 @@ genMeshes(GLint **pos, GLubyte **spans, GLubyte **faces, GLubyte **tex)
 						(*spans)[2 * size] = (i & 1) && i != 5 ? m : n;
 						(*spans)[2 * size + 1] = (i & 1) && i != 5 ? n : m;
 						(*faces)[size] = i;
-						(*tex)[size++] = t - 1;
+						(*tex)[size++] = texMap[t - 1][(i >= 4) + (i == 5)];
+						//(*tex)[size++] = t - 1;
 					}
 				}
 			}

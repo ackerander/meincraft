@@ -6,7 +6,7 @@
 #define SCREEN_W 2800
 #define SCREEN_H 2100
 #define NAME "IDK"
-#define SPD 5
+#define SPD 10
 #define MOUSESPD 5e-4f
 #define BACKGRD 0.3, 0.8, 1
 

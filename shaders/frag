@@ -2,11 +2,12 @@
 
 in vec2 UV;
 in vec2 texCoord;
+in float light;
 out vec3 color;
 
 uniform sampler2D myTextureSampler;
 
 void main()
 {
-	color = texture(myTextureSampler, 0.0625 * fract(UV) + texCoord).rgb;
+	color = light * texture(myTextureSampler, 0.0625 * fract(UV) + texCoord).rgb;
 }
