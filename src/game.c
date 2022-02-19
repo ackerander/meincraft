@@ -12,11 +12,28 @@ int d[3] = {0};
 static float offsets[OCTS][2];
 static const uint8_t texMap[][3] = {{0, 0, 0}, {1, 1, 1}, {2, 3, 1}, {4, 4, 4}};
 
-inline char
+char
 isVisable(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t f)
 {
+	/*
 	uint8_t *c = f < 4 ? (f & 1 ? &x : &z) : &y;
 	return (*c += ((38 >> f) & 2) - 1) >= CHUNK || !chunks[idx][x][y][z];
+	*/
+	switch (f) {
+	case 0:
+		return !(z != CHUNK - 1 ? chunks[idx][x][y][z + 1] : chunks[idx + drawDist*drawDist][x][y][0]);
+	case 1:
+		return !(x != CHUNK - 1 ? chunks[idx][x + 1][y][z] : chunks[idx + 1][0][y][z]);
+	case 2:
+		return !(z ? chunks[idx][x][y][z - 1] : chunks[idx - drawDist*drawDist][x][y][CHUNK - 1]);
+	case 3:
+		return !(x ? chunks[idx][x - 1][y][z] : chunks[idx - 1][CHUNK - 1][y][z]);
+	case 4:
+		return !(y != CHUNK - 1 ? chunks[idx][x][y + 1][z] : chunks[idx + drawDist][x][0][z]);
+	case 5:
+		return !(y ? chunks[idx][x][y - 1][z] : chunks[idx - drawDist][x][CHUNK - 1][z]);
+	}
+	return 0;
 }
 
 inline char
