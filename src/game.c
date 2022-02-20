@@ -15,10 +15,6 @@ static const uint8_t texMap[][3] = {{0, 0, 0}, {1, 1, 1}, {2, 3, 1}, {4, 4, 4}};
 char
 isVisable(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t f)
 {
-	/*
-	uint8_t *c = f < 4 ? (f & 1 ? &x : &z) : &y;
-	return (*c += ((38 >> f) & 2) - 1) >= CHUNK || !chunks[idx][x][y][z];
-	*/
 	switch (f) {
 	case 0:
 		return !(z != CHUNK - 1 ? chunks[idx][x][y][z + 1] : chunks[idx + drawDist*drawDist][x][y][0]);
@@ -65,7 +61,9 @@ getBlock(long y, int h)
 {
 	if (h < 5)
 		return SAND;
-	return (h <= 50 && y + 2 >= h) + (y + 1 == h) + 1;
+	if (h > 50)
+		return STONE;
+	return (y + 2 >= h) + (y + 1 == h) + 1;
 }
 
 void
