@@ -6,21 +6,32 @@
 #include <stdint.h>
 #define M_PI 3.14159265358979323846264338327
 #define CHUNK 32
-#define CHUNKSZ CHUNK * CHUNK * CHUNK
+#define CHUNKSZ (CHUNK * CHUNK * CHUNK)
+#define SQAR(X) ((X) * (X))
+#define CUBE(X) ((X) * (X) * (X))
+#define MAXMESH (CHUNKSZ * 3 / 4)
 
 enum blocks { NONE, STONE, DIRT, GRASS, SAND, LOG, WOOD, COAL, IRON };
+enum dirs { NORTH, SOUTH, EAST, WEST, UP, DOWN };
 
 void updateView();
-short init();
+short initgl();
 GLuint loadShaders(const char *, const char *);
-void perspec(float, float, float, float, mat4);
 void lookAt(const vec3, const vec3, const vec3, mat4);
 void translate(const vec3, mat4);
 void rotate(const vec4, mat4);
 GLuint loadPng(const char *const fn);
+void allocBuffs();
+void delBuffs();
+void writeMeshes();
+void renderLoop();
+void cleanupgl();
 
-void initGame();
+void move(uint8_t dir);
+void init();
 void cleanup();
-size_t genMeshes(GLint **pos, GLubyte **spans, GLubyte **faces, GLubyte **tex);
+void chunkMeshes(int ix, int iy, int iz);
+size_t genMeshes();
+size_t updateMeshes();
 
 #endif

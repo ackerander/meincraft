@@ -3,43 +3,17 @@
 #include <stdlib.h>
 #include <math.h>
 
-extern mat4 viewMat;
-extern GLFWwindow* window;
-static const GLubyte vertBuffData[] = {0, 1, 2, 3};
-
 int
-main(int argc, char **argv)
+main()
 {
-	GLuint vertBuff, offsetBuff, spanBuff, faceBuff, texBuff, vertArrID, progID, matrixID, tex, texID;
-	mat4 perspecM = {0}, mvp;
-	GLint *pos;
-	GLubyte *spans, *faces, *texes;
-	size_t meshes;
-
-	if (init())
+	if (initgl())
 		return -1;
 
-	glGenVertexArrays(1, &vertArrID);
-	glBindVertexArray(vertArrID);
-
-	progID = loadShaders("shaders/vert", "shaders/frag");
-
-	matrixID = glGetUniformLocation(progID, "MVP");
-/* Construct matrices */
-	perspec(M_PI / 4, 4.0 / 3, 0.1, 100.0, perspecM);
-
-	tex = loadPng(argc == 2 ? argv[1] : "assets/testTex.png");
-	texID = glGetUniformLocation(progID, "myTextureSampler");
-
 /* Construct chunk & meshes */
-	initGame();
-	meshes = genMeshes(&pos, &spans, &faces, &texes);
-	printf("Mesh size: %lu\n", meshes);
+	init();
+	genMeshes();
 
-	glGenBuffers(1, &vertBuff);
-	glBindBuffer(GL_ARRAY_BUFFER, vertBuff);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertBuffData), vertBuffData, GL_STATIC_DRAW);
-
+/*
 	glGenBuffers(1, &offsetBuff);
 	glBindBuffer(GL_ARRAY_BUFFER, offsetBuff);
 	glBufferData(GL_ARRAY_BUFFER, 3 * meshes * sizeof(GLint), pos, GL_STATIC_DRAW);
@@ -59,18 +33,11 @@ main(int argc, char **argv)
 	glBindBuffer(GL_ARRAY_BUFFER, texBuff);
 	glBufferData(GL_ARRAY_BUFFER, meshes, texes, GL_STATIC_DRAW);
 	glVertexAttribDivisor(4, 1);
+*/
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glUniform1i(texID, 0);
+	writeMeshes();
 
-	glUseProgram(progID);
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glEnableVertexAttribArray(2);
-	glEnableVertexAttribArray(3);
-	glEnableVertexAttribArray(4);
-
+	/*
 	do {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -98,28 +65,11 @@ main(int argc, char **argv)
 
 		glfwPollEvents();
 	} while (!glfwWindowShouldClose(window));
+	*/
+	renderLoop();
 
 	cleanup();
-
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(2);
-	glDisableVertexAttribArray(3);
-	glDisableVertexAttribArray(4);
-	glDeleteBuffers(1, &vertBuff);
-	glDeleteBuffers(1, &offsetBuff);
-	glDeleteBuffers(1, &spanBuff);
-	glDeleteBuffers(1, &faceBuff);
-	glDeleteBuffers(1, &texBuff);
-	glDeleteVertexArrays(1, &vertArrID);
-	glDeleteTextures(1, &tex);
-	glDeleteProgram(progID);
-	glfwTerminate();
-
-	free(pos);
-	free(spans);
-	free(faces);
-	free(texes);
+	cleanupgl();
 
 	return 0;
 }

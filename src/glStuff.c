@@ -10,10 +10,20 @@
 #define MOUSESPD 5e-4f
 #define BACKGRD 0.3, 0.8, 1
 
+static const GLubyte vertBuffData[] = {0, 1, 2, 3};
+
+GLuint vertBuff, offsetBuff, spanBuff, faceBuff, texBuff, vertArrID, progID, matrixID, tex, texID;
+GLint *poses;
+GLubyte *spans;
+GLubyte *faces;
+GLubyte *texes;
 mat4 viewMat = {0};
 GLFWwindow* window;
 static vec3 pos = {0, 0, 5}, dir, right, up;
 static double hAngle = M_PI, vAngle = 0, keyStates[6] = {-1, -1, -1, -1, -1, -1};
+
+extern uint8_t drawDist;
+extern size_t size;
 
 void
 updateView()
@@ -134,12 +144,33 @@ handleKey(GLFWwindow *win, int key, int code, int act, int mods)
 			v3scale((keyStates[5] - glfwGetTime()) * SPD, up, tmp);
 			v3addeq(tmp, pos);
 			keyStates[5] = -1;
+			break;
+		case GLFW_KEY_RIGHT:
+			move(EAST);
+			updateMeshes();
+			writeMeshes();
+			break;
+		case GLFW_KEY_LEFT:
+			move(WEST);
+			updateMeshes();
+			writeMeshes();
+			break;
+		case GLFW_KEY_UP:
+			move(NORTH);
+			updateMeshes();
+			writeMeshes();
+			break;
+		case GLFW_KEY_DOWN:
+			move(SOUTH);
+			updateMeshes();
+			writeMeshes();
+			break;
 		}
 	}
 }
 
 short
-init()
+initgl()
 {
 	if (!glfwInit()) {
 		fprintf(stderr, "Error initializing GLFW!\n");
@@ -179,6 +210,33 @@ init()
 	glEnable(GL_CULL_FACE);
 
 	handleMouse(0, SCREEN_W / 2, SCREEN_H / 2);
+
+	glGenVertexArrays(1, &vertArrID);
+	glBindVertexArray(vertArrID);
+
+	progID = loadShaders("shaders/vert", "shaders/frag");
+	matrixID = glGetUniformLocation(progID, "MVP");
+
+/* Construct matrices */
+	tex = loadPng("assets/testTex.png");
+	texID = glGetUniformLocation(progID, "myTextureSampler");
+/* Allocate Buffers */
+	glGenBuffers(1, &vertBuff);
+	glBindBuffer(GL_ARRAY_BUFFER, vertBuff);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertBuffData), vertBuffData, GL_STATIC_DRAW);
+	allocBuffs();
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glUniform1i(texID, 0);
+
+	glUseProgram(progID);
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+	glEnableVertexAttribArray(3);
+	glEnableVertexAttribArray(4);
+
 	return 0;
 }
 
@@ -381,4 +439,115 @@ quit2:
 quit1:
 	fclose(fp);
 	return texID;
+}
+
+void
+allocBuffs()
+{
+	size_t maxFaces = CUBE(drawDist - 2) * MAXMESH;
+	glGenBuffers(1, &offsetBuff);
+	glBindBuffer(GL_ARRAY_BUFFER, offsetBuff);
+	glBufferData(GL_ARRAY_BUFFER, 3 * maxFaces * sizeof(GLint), 0, GL_STATIC_DRAW);
+	glVertexAttribDivisor(1, 1);
+
+	glGenBuffers(1, &spanBuff);
+	glBindBuffer(GL_ARRAY_BUFFER, spanBuff);
+	glBufferData(GL_ARRAY_BUFFER, 2 * maxFaces, 0, GL_DYNAMIC_DRAW);
+	glVertexAttribDivisor(2, 1);
+
+	glGenBuffers(1, &faceBuff);
+	glBindBuffer(GL_ARRAY_BUFFER, faceBuff);
+	glBufferData(GL_ARRAY_BUFFER, maxFaces, 0, GL_DYNAMIC_DRAW);
+	glVertexAttribDivisor(3, 1);
+	
+	glGenBuffers(1, &texBuff);
+	glBindBuffer(GL_ARRAY_BUFFER, texBuff);
+	glBufferData(GL_ARRAY_BUFFER, maxFaces, 0, GL_DYNAMIC_DRAW);
+	glVertexAttribDivisor(4, 1);
+}
+
+void
+delBuffs()
+{
+	glDeleteBuffers(1, &offsetBuff);
+	glDeleteBuffers(1, &spanBuff);
+	glDeleteBuffers(1, &faceBuff);
+	glDeleteBuffers(1, &texBuff);
+}
+
+void
+writeMeshes()
+{
+	glBindBuffer(GL_ARRAY_BUFFER, offsetBuff);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * size * sizeof(GLint), poses);
+	glBindBuffer(GL_ARRAY_BUFFER, spanBuff);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, 2 * size, spans);
+	glBindBuffer(GL_ARRAY_BUFFER, faceBuff);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, size, faces);
+	glBindBuffer(GL_ARRAY_BUFFER, texBuff);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, size, texes);
+}
+
+void
+renderLoop()
+{
+	mat4 perspecM = {0}, mvp;
+/*
+	size_t nFrames = 0;
+	double currT, lastT = glfwGetTime();
+*/
+
+	perspec(M_PI / 4, 4.0 / 3, 0.1, 100.0, perspecM);
+	do {
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		updateView();
+		mm4mult(perspecM, viewMat, mvp);
+		glUniformMatrix4fv(matrixID, 1, GL_TRUE, mvp);
+
+		glBindBuffer(GL_ARRAY_BUFFER, vertBuff);
+		glVertexAttribIPointer(0, 1, GL_UNSIGNED_BYTE, 0, 0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, offsetBuff);
+		glVertexAttribIPointer(1, 3, GL_INT, 0, 0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, spanBuff);
+		glVertexAttribIPointer(2, 2, GL_UNSIGNED_BYTE, 0, 0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, faceBuff);
+		glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, 0, 0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, texBuff);
+		glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE, 0, 0);
+
+		glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, size);
+		glfwSwapBuffers(window);
+
+		glfwPollEvents();
+/*
+		currT = glfwGetTime();
+		++nFrames;
+		if (currT - lastT >= 1.0) {
+			printf("%f\n", 1000.0 / (double)nFrames);
+			nFrames = 0;
+			lastT += 1.0;
+		}
+*/
+	} while (!glfwWindowShouldClose(window));
+}
+
+void
+cleanupgl()
+{
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(2);
+	glDisableVertexAttribArray(3);
+	glDisableVertexAttribArray(4);
+	glDeleteBuffers(1, &vertBuff);
+	delBuffs();
+	glDeleteVertexArrays(1, &vertArrID);
+	glDeleteTextures(1, &tex);
+	glDeleteProgram(progID);
+	glfwTerminate();
 }
