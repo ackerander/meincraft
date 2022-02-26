@@ -19,8 +19,9 @@ GLubyte *faces;
 GLubyte *texes;
 mat4 viewMat = {0};
 GLFWwindow* window;
-static vec3 pos = {0, 0, 5}, dir, right, up;
-static double hAngle = M_PI, vAngle = 0, keyStates[6] = {-1, -1, -1, -1, -1, -1};
+vec3 pos;
+static vec3 dir, right, up;
+static double hAngle = 0, vAngle = 0, keyStates[6] = {-1, -1, -1, -1, -1, -1};
 
 extern uint8_t drawDist;
 extern size_t size;
@@ -144,26 +145,6 @@ handleKey(GLFWwindow *win, int key, int code, int act, int mods)
 			v3scale((keyStates[5] - glfwGetTime()) * SPD, up, tmp);
 			v3addeq(tmp, pos);
 			keyStates[5] = -1;
-			break;
-		case GLFW_KEY_RIGHT:
-			move(EAST);
-			updateMeshes();
-			writeMeshes();
-			break;
-		case GLFW_KEY_LEFT:
-			move(WEST);
-			updateMeshes();
-			writeMeshes();
-			break;
-		case GLFW_KEY_UP:
-			move(NORTH);
-			updateMeshes();
-			writeMeshes();
-			break;
-		case GLFW_KEY_DOWN:
-			move(SOUTH);
-			updateMeshes();
-			writeMeshes();
 			break;
 		}
 	}
@@ -524,6 +505,7 @@ renderLoop()
 		glfwSwapBuffers(window);
 
 		glfwPollEvents();
+		updateGame();
 /*
 		currT = glfwGetTime();
 		++nFrames;

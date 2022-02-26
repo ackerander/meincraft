@@ -12,7 +12,7 @@
 #define MAXMESH (CHUNKSZ * 3 / 4)
 
 enum blocks { NONE, STONE, DIRT, GRASS, SAND, LOG, WOOD, COAL, IRON };
-enum dirs { NORTH, SOUTH, EAST, WEST, UP, DOWN };
+enum dirs { NORTH, SOUTH, WEST, EAST, UP, DOWN };
 
 void updateView();
 short initgl();
@@ -33,5 +33,6 @@ void cleanup();
 void chunkMeshes(int ix, int iy, int iz);
 size_t genMeshes();
 size_t updateMeshes();
+void updateGame();
 
 #endif

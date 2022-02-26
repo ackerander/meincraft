@@ -2,15 +2,15 @@
 #include <stdlib.h>
 #include <time.h>
 #include <noise.h>
-#include <stdio.h>
 #define ALLOC 64
 #define SCALE 3e-4
 #define OCTS 4
 
 uint8_t (*chunks)[CHUNK][CHUNK][CHUNK];
 uint16_t *chunkMap;
-uint8_t drawDist = 7;
+uint8_t drawDist = 9;
 int d[3] = {0};
+extern vec3 pos;
 extern GLint *poses;
 extern GLubyte *spans;
 extern GLubyte *faces;
@@ -19,6 +19,32 @@ size_t size;
 static size_t allocSz;
 static float offsets[OCTS][2];
 static const uint8_t texMap[][3] = {{0, 0, 0}, {1, 1, 1}, {2, 3, 1}, {4, 4, 4}};
+
+void
+updateGame()
+{
+	char update = 0;
+	if (pos[0] - d[0] * CHUNK > CHUNK) {
+		move(WEST);
+		update = 1;
+	} else if (pos[0] - d[0] * CHUNK < 0) {
+		move(EAST);
+		update = 1;
+	}
+
+	if (pos[2] - d[2] * CHUNK > CHUNK) {
+		move(NORTH);
+		update = 1;
+	} else if (pos[2] - d[2] * CHUNK < 0) {
+		move(SOUTH);
+		update = 1;
+	}
+
+	if (update) {
+		updateMeshes();
+		writeMeshes();
+	}
+}
 
 char
 isVisable(int idx, uint8_t x, uint8_t y, uint8_t z, uint8_t f)
@@ -71,7 +97,7 @@ getBlock(long y, int h)
 		return NONE;
 	if (h < 5)
 		return SAND;
-	if (h > 50)
+	if (h > 90)
 		return STONE;
 	return (y + 2 >= h) + (y + 1 == h) + 1;
 }
@@ -86,7 +112,7 @@ genChunk(uint8_t i, uint8_t j, uint8_t k)
 	for (uint8_t x = 0; x < CHUNK; ++x) {
 		for (uint8_t z = 0; z < CHUNK; ++z) {
 			h = (long)(384 * (noise(SCALE * (X + x), SCALE * (Z + z),
-					offsets, OCTS, 0.4, 5) - 0.5));
+					offsets, OCTS, 0.4, 5) - 0.45));
 			for (long y = 0; y < CHUNK; ++y)
 				chunks[idx][x][y][z] = getBlock(blockH + y, h);
 		}
@@ -109,6 +135,7 @@ init()
 				genChunk(i, j, k);
 		}
 	}
+	pos[1] = 384 * (noise(0, 0, offsets, OCTS, 0.4, 5) - 0.45);
 }
 
 void
@@ -225,19 +252,6 @@ move(uint8_t dir)
 	uint16_t x, y, z, tmp;
 	switch (dir) {
 	case NORTH:
-		--d[2];
-		for (x = 0; x < drawDist; ++x) {
-			for (y = 0; y < drawDist; ++y) {
-				tmp = chunkMap[drawDist * (drawDist * (drawDist - 1) + y) + x];
-				for (z = drawDist - 1; z > 0; --z)
-					chunkMap[drawDist * (drawDist * z + y) + x] =
-					chunkMap[drawDist * (drawDist * (z - 1) + y) + x];
-				chunkMap[drawDist * y + x] = tmp;
-				genChunk(x, y, 0);
-			}
-		}
-		break;
-	case SOUTH:
 		++d[2];
 		for (x = 0; x < drawDist; ++x) {
 			for (y = 0; y < drawDist; ++y) {
@@ -250,7 +264,20 @@ move(uint8_t dir)
 			}
 		}
 		break;
-	case EAST:
+	case SOUTH:
+		--d[2];
+		for (x = 0; x < drawDist; ++x) {
+			for (y = 0; y < drawDist; ++y) {
+				tmp = chunkMap[drawDist * (drawDist * (drawDist - 1) + y) + x];
+				for (z = drawDist - 1; z > 0; --z)
+					chunkMap[drawDist * (drawDist * z + y) + x] =
+					chunkMap[drawDist * (drawDist * (z - 1) + y) + x];
+				chunkMap[drawDist * y + x] = tmp;
+				genChunk(x, y, 0);
+			}
+		}
+		break;
+	case WEST:
 		++d[0];
 		for (z = 0; z < drawDist; ++z) {
 			for (y = 0; y < drawDist; ++y) {
@@ -263,7 +290,7 @@ move(uint8_t dir)
 			}
 		}
 		break;
-	case WEST:
+	case EAST:
 		--d[0];
 		for (z = 0; z < drawDist; ++z) {
 			for (y = 0; y < drawDist; ++y) {
