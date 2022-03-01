@@ -1,10 +1,14 @@
 #include "stuff.h"
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 #include <noise.h>
 #define ALLOC 64
 #define SCALE 3e-4
 #define OCTS 4
+#define AMP 384
+#define H(X, Y) (AMP * (noise(SCALE * (X), SCALE * (Y), offsets, OCTS, 0.4, 5) - 0.45))
+#define MESHD (drawDist - 2)
 
 uint8_t (*chunks)[CHUNK][CHUNK][CHUNK];
 uint16_t *chunkMap;
@@ -15,6 +19,7 @@ extern GLint *poses;
 extern GLubyte *spans;
 extern GLubyte *faces;
 extern GLubyte *texes;
+meshInfo *meshMap;
 size_t size;
 static size_t allocSz;
 static float offsets[OCTS][2];
@@ -40,10 +45,8 @@ updateGame()
 		update = 1;
 	}
 
-	if (update) {
-		updateMeshes();
+	if (update)
 		writeMeshes();
-	}
 }
 
 char
@@ -111,8 +114,7 @@ genChunk(uint8_t i, uint8_t j, uint8_t k)
 	     Z = CHUNK * (d[2] - drawDist / 2 + k);
 	for (uint8_t x = 0; x < CHUNK; ++x) {
 		for (uint8_t z = 0; z < CHUNK; ++z) {
-			h = (long)(384 * (noise(SCALE * (X + x), SCALE * (Z + z),
-					offsets, OCTS, 0.4, 5) - 0.45));
+			h = (long)H(X + x, Z + z);
 			for (long y = 0; y < CHUNK; ++y)
 				chunks[idx][x][y][z] = getBlock(blockH + y, h);
 		}
@@ -125,6 +127,7 @@ init()
 	chunks = malloc(sizeof(uint8_t[CUBE(drawDist)]
 		[CHUNK][CHUNK][CHUNK]));
 	chunkMap = malloc(CUBE(drawDist) * sizeof(uint16_t));
+	meshMap = malloc(CUBE(MESHD) * sizeof(meshInfo));
 	for (uint16_t i = 0; i < CUBE(drawDist); ++i)
 		chunkMap[i] = i;
 	initPerlin(3);
@@ -135,7 +138,7 @@ init()
 				genChunk(i, j, k);
 		}
 	}
-	pos[1] = 384 * (noise(0, 0, offsets, OCTS, 0.4, 5) - 0.45);
+	pos[1] = H(0, 0);
 }
 
 void
@@ -148,10 +151,11 @@ cleanup()
 	free(spans);
 	free(faces);
 	free(texes);
+	free(meshMap);
 }
 
 void
-chunkMeshes(int ix, int iy, int iz)
+chunkMeshes(uint8_t ix, uint8_t iy, uint8_t iz)
 {
 	uint8_t meshedFaces[CHUNK][CHUNK][CHUNK] = {0},
 		n, m, t;
@@ -236,20 +240,48 @@ genMeshes()
 size_t
 updateMeshes()
 {
+	uint16_t idx = 0;
 	size = 0;
-	for (int iz = 1; iz < drawDist - 1; ++iz) {
-		for (int iy = 1; iy < drawDist - 1; ++iy) {
-			for (int ix = 1; ix < drawDist - 1; ++ix)
-				chunkMeshes(ix, iy, iz);
-		}
-	}
+	for (uint8_t iz = 1; iz < drawDist - 1; ++iz) {
+	for (uint8_t iy = 1; iy < drawDist - 1; ++iy) {
+	for (uint8_t ix = 1; ix < drawDist - 1; ++ix) {
+		meshMap[idx].offset = size;
+		meshMap[idx].x = ix - 1;
+		meshMap[idx].y = iy - 1;
+		meshMap[idx++].z = iz - 1;
+		chunkMeshes(ix, iy, iz);
+	}}}
 	return size;
 }
-
+/*
+void
+packMoveMeshes(uint8_t dir)
+{
+	// WEST
+	for (x = 0; x < CUBE(MESHD) && !meshMap[x].x; ++x);
+	free = meshMap[x++].offset;
+	for (; x < CUBE(MESHD); ++x) {
+		if (!meshMap[x].x) {
+			len = meshMap[x + 1].offset - meshMap[x].offset;
+			memmove(&poses[3 * free], &poses[3 * meshMap[x].offset], len * 3 * sizeof(GLint));
+			memmove(&spans[2 * free], &spans[meshMap[x].offset], len * 2 * sizeof(GLubyte));
+			memmove(&faces[free], &faces[meshMap[x].offset], len * sizeof(GLubyte));
+			memmove(&texes[free], &texes[meshMap[x].offset], len * sizeof(GLubyte));
+			meshMap[free].offset = free;
+			meshMap[x].x = meshMap[x].x - 1;
+			meshMap[x].y = meshMap[x].y;
+			meshMap[x].z = meshMap[x].z;
+			free += len;
+		}
+	}
+}
+*/
 void
 move(uint8_t dir)
 {
 	uint16_t x, y, z, tmp;
+	size_t free, len;
+
 	switch (dir) {
 	case NORTH:
 		++d[2];
@@ -261,6 +293,33 @@ move(uint8_t dir)
 					chunkMap[drawDist * (drawDist * (z + 1) + y) + x];
 				chunkMap[drawDist * (drawDist * z + y) + x] = tmp;
 				genChunk(x, y, z);
+			}
+		}
+		for (x = 0; x < CUBE(MESHD) && meshMap[x].z; ++x)
+			meshMap[x].z -= 1;
+		free = meshMap[z = x++].offset;
+		for (; x < CUBE(MESHD); ++x) {
+			if (meshMap[x].z) {
+				len = x == CUBE(MESHD) - 1 ? size - meshMap[x].offset : meshMap[x + 1].offset - meshMap[x].offset;
+				memmove(&poses[3 * free], &poses[3 * meshMap[x].offset], len * 3 * sizeof(GLint));
+				memmove(&spans[2 * free], &spans[2 * meshMap[x].offset], len * 2 * sizeof(GLubyte));
+				memmove(&faces[free], &faces[meshMap[x].offset], len * sizeof(GLubyte));
+				memmove(&texes[free], &texes[meshMap[x].offset], len * sizeof(GLubyte));
+				meshMap[z].offset = free;
+				meshMap[z].x = meshMap[x].x;
+				meshMap[z].y = meshMap[x].y;
+				meshMap[z++].z = meshMap[x].z - 1;
+				free += len;
+			}
+		}
+		size = free;
+		for (x = 1; x < drawDist - 1; ++x) {
+			for (y = 1; y < drawDist - 1; ++y) {
+				meshMap[z].offset = size;
+				meshMap[z].x = x;
+				meshMap[z].y = y;
+				meshMap[z++].z = MESHD;
+				chunkMeshes(x, y, MESHD);
 			}
 		}
 		break;
@@ -287,6 +346,33 @@ move(uint8_t dir)
 					chunkMap[drawDist * (drawDist * z + y) + x + 1];
 				chunkMap[drawDist * (drawDist * z + y) + x] = tmp;
 				genChunk(x, y, z);
+			}
+		}
+		for (z = 0; z < CUBE(MESHD) && meshMap[z].x; ++z)
+			meshMap[z].x -= 1;
+		free = meshMap[x = z++].offset;
+		for (; z < CUBE(MESHD); ++z) {
+			if (meshMap[z].x) {
+				len = z == CUBE(MESHD) - 1 ? size - meshMap[z].offset : meshMap[z + 1].offset - meshMap[z].offset;
+				memmove(&poses[3 * free], &poses[3 * meshMap[z].offset], len * 3 * sizeof(GLint));
+				memmove(&spans[2 * free], &spans[2 * meshMap[z].offset], len * 2 * sizeof(GLubyte));
+				memmove(&faces[free], &faces[meshMap[z].offset], len * sizeof(GLubyte));
+				memmove(&texes[free], &texes[meshMap[z].offset], len * sizeof(GLubyte));
+				meshMap[x].offset = free;
+				meshMap[x].x = meshMap[z].x - 1;
+				meshMap[x].y = meshMap[z].y;
+				meshMap[x++].z = meshMap[z].z;
+				free += len;
+			}
+		}
+		size = free;
+		for (y = 1; y < drawDist - 1; ++y) {
+			for (z = 1; z < drawDist - 1; ++z) {
+				meshMap[x].offset = size;
+				meshMap[x].x = MESHD;
+				meshMap[x].y = y;
+				meshMap[x++].z = z;
+				chunkMeshes(MESHD, y, z);
 			}
 		}
 		break;

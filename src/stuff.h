@@ -11,6 +11,11 @@
 #define CUBE(X) ((X) * (X) * (X))
 #define MAXMESH (CHUNKSZ * 3 / 4)
 
+typedef struct {
+	size_t offset;
+	uint8_t x, y, z;
+} meshInfo;
+
 enum blocks { NONE, STONE, DIRT, GRASS, SAND, LOG, WOOD, COAL, IRON };
 enum dirs { NORTH, SOUTH, WEST, EAST, UP, DOWN };
 
@@ -30,7 +35,7 @@ void cleanupgl();
 void move(uint8_t dir);
 void init();
 void cleanup();
-void chunkMeshes(int ix, int iy, int iz);
+void chunkMeshes(uint8_t ix, uint8_t iy, uint8_t iz);
 size_t genMeshes();
 size_t updateMeshes();
 void updateGame();
