@@ -246,9 +246,9 @@ updateMeshes()
 	for (uint8_t iy = 1; iy < drawDist - 1; ++iy) {
 	for (uint8_t ix = 1; ix < drawDist - 1; ++ix) {
 		meshMap[idx].offset = size;
-		meshMap[idx].x = ix - 1;
-		meshMap[idx].y = iy - 1;
-		meshMap[idx++].z = iz - 1;
+		meshMap[idx].x = ix;
+		meshMap[idx].y = iy;
+		meshMap[idx++].z = iz;
 		chunkMeshes(ix, iy, iz);
 	}}}
 	return size;
@@ -295,12 +295,12 @@ move(uint8_t dir)
 				genChunk(x, y, z);
 			}
 		}
-		for (x = 0; x < CUBE(MESHD) && meshMap[x].z; ++x)
-			meshMap[x].z -= 1;
+		for (x = 0; x < CUBE(MESHD) && meshMap[x].z > 1; ++x)
+			--meshMap[x].z;
 		free = meshMap[z = x++].offset;
 		for (; x < CUBE(MESHD); ++x) {
-			if (meshMap[x].z) {
-				len = x == CUBE(MESHD) - 1 ? size - meshMap[x].offset : meshMap[x + 1].offset - meshMap[x].offset;
+			if (meshMap[x].z > 1) {
+				len = (x == CUBE(MESHD) - 1 ? size : meshMap[x + 1].offset) - meshMap[x].offset;
 				memmove(&poses[3 * free], &poses[3 * meshMap[x].offset], len * 3 * sizeof(GLint));
 				memmove(&spans[2 * free], &spans[2 * meshMap[x].offset], len * 2 * sizeof(GLubyte));
 				memmove(&faces[free], &faces[meshMap[x].offset], len * sizeof(GLubyte));
@@ -335,6 +335,33 @@ move(uint8_t dir)
 				genChunk(x, y, 0);
 			}
 		}
+		for (x = 0; x < CUBE(MESHD) && meshMap[x].z < MESHD; ++x)
+			++meshMap[x].z;
+		free = meshMap[z = x++].offset;
+		for (; x < CUBE(MESHD); ++x) {
+			if (meshMap[x].z < MESHD) {
+				len = (x == CUBE(MESHD) - 1 ? size : meshMap[x + 1].offset) - meshMap[x].offset;
+				memmove(&poses[3 * free], &poses[3 * meshMap[x].offset], len * 3 * sizeof(GLint));
+				memmove(&spans[2 * free], &spans[2 * meshMap[x].offset], len * 2 * sizeof(GLubyte));
+				memmove(&faces[free], &faces[meshMap[x].offset], len * sizeof(GLubyte));
+				memmove(&texes[free], &texes[meshMap[x].offset], len * sizeof(GLubyte));
+				meshMap[z].offset = free;
+				meshMap[z].x = meshMap[x].x;
+				meshMap[z].y = meshMap[x].y;
+				meshMap[z++].z = meshMap[x].z + 1;
+				free += len;
+			}
+		}
+		size = free;
+		for (x = 1; x < drawDist - 1; ++x) {
+			for (y = 1; y < drawDist - 1; ++y) {
+				meshMap[z].offset = size;
+				meshMap[z].x = x;
+				meshMap[z].y = y;
+				meshMap[z++].z = 1;
+				chunkMeshes(x, y, 1);
+			}
+		}
 		break;
 	case WEST:
 		++d[0];
@@ -348,12 +375,12 @@ move(uint8_t dir)
 				genChunk(x, y, z);
 			}
 		}
-		for (z = 0; z < CUBE(MESHD) && meshMap[z].x; ++z)
-			meshMap[z].x -= 1;
+		for (z = 0; z < CUBE(MESHD) && meshMap[z].x > 1; ++z)
+			--meshMap[z].x;
 		free = meshMap[x = z++].offset;
 		for (; z < CUBE(MESHD); ++z) {
-			if (meshMap[z].x) {
-				len = z == CUBE(MESHD) - 1 ? size - meshMap[z].offset : meshMap[z + 1].offset - meshMap[z].offset;
+			if (meshMap[z].x > 1) {
+				len = (z == CUBE(MESHD) - 1 ? size : meshMap[z + 1].offset) - meshMap[z].offset;
 				memmove(&poses[3 * free], &poses[3 * meshMap[z].offset], len * 3 * sizeof(GLint));
 				memmove(&spans[2 * free], &spans[2 * meshMap[z].offset], len * 2 * sizeof(GLubyte));
 				memmove(&faces[free], &faces[meshMap[z].offset], len * sizeof(GLubyte));
@@ -386,6 +413,33 @@ move(uint8_t dir)
 					chunkMap[drawDist * (drawDist * z + y) + x - 1];
 				chunkMap[drawDist * (drawDist * z + y)] = tmp;
 				genChunk(0, y, z);
+			}
+		}
+		for (z = 0; z < CUBE(MESHD) && meshMap[z].x < MESHD; ++z)
+			++meshMap[z].x;
+		free = meshMap[x = z++].offset;
+		for (; z < CUBE(MESHD); ++z) {
+			if (meshMap[z].x < MESHD) {
+				len = (z == CUBE(MESHD) - 1 ? size : meshMap[z + 1].offset) - meshMap[z].offset;
+				memmove(&poses[3 * free], &poses[3 * meshMap[z].offset], len * 3 * sizeof(GLint));
+				memmove(&spans[2 * free], &spans[2 * meshMap[z].offset], len * 2 * sizeof(GLubyte));
+				memmove(&faces[free], &faces[meshMap[z].offset], len * sizeof(GLubyte));
+				memmove(&texes[free], &texes[meshMap[z].offset], len * sizeof(GLubyte));
+				meshMap[x].offset = free;
+				meshMap[x].x = meshMap[z].x + 1;
+				meshMap[x].y = meshMap[z].y;
+				meshMap[x++].z = meshMap[z].z;
+				free += len;
+			}
+		}
+		size = free;
+		for (y = 1; y < drawDist - 1; ++y) {
+			for (z = 1; z < drawDist - 1; ++z) {
+				meshMap[x].offset = size;
+				meshMap[x].x = 1;
+				meshMap[x].y = y;
+				meshMap[x++].z = z;
+				chunkMeshes(1, y, z);
 			}
 		}
 		break;
